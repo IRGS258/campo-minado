@@ -1,262 +1,87 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Campo Minado IRGS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Campo Minado</title>
   <style>
     body {
-      font-family: 'Segoe UI', sans-serif;
-      background-color: #e3f2fd;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+      background-color: #f8f8f8;
+    }
+    h1 {
+      margin-top: 20px;
+      color: #333;
+    }
+    .container {
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding-top: 30px;
+      padding: 10px;
     }
-
-    h1 {
-      color: #0d47a1;
-    }
-
-    #board {
+    .grid {
       display: grid;
-      grid-template-columns: repeat(10, 40px);
-      gap: 4px;
+      grid-template-columns: repeat(8, 40px);
+      gap: 5px;
       margin-top: 20px;
     }
-
     .cell {
       width: 40px;
       height: 40px;
-      background-color: #bbdefb;
-      border: none;
-      font-size: 1rem;
-      font-weight: bold;
-      text-align: center;
+      background-color: #ccc;
+      border: 1px solid #999;
+      font-size: 18px;
       line-height: 40px;
-      border-radius: 6px;
-      cursor: pointer;
     }
-
-    .cell.revealed {
-      background-color: #e1f5fe;
-      cursor: default;
-    }
-
-    .cell.bomb {
-      background-color: #ef5350;
-      color: white;
-    }
-
-    .cell.flagged {
-      background-color: #fff9c4;
-    }
-
-    .info {
+    button {
       margin-top: 15px;
-      font-size: 1.2rem;
-      color: #333;
-    }
-
-    .btn {
-      margin-top: 20px;
       padding: 10px 20px;
-      background-color: #1976d2;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 1rem;
+      font-size: 16px;
     }
 
-    .btn:hover {
-      background-color: #1565c0;
-    }
-
-    .timer {
-      font-size: 1rem;
-      margin-top: 10px;
-      color: #555;
+    /* Ajuste para telas pequenas */
+    @media (max-width: 600px) {
+      .grid {
+        grid-template-columns: repeat(6, 30px);
+      }
+      .cell {
+        width: 30px;
+        height: 30px;
+        font-size: 14px;
+        line-height: 30px;
+      }
     }
   </style>
 </head>
 <body>
   <h1>Campo Minado</h1>
-  <div class="timer" id="timer">⏱️ Tempo: 0s</div>
-  <div id="board"></div>
-  <div class="info" id="info">Evite as minas! 💣 Use o botão direito para 🚩</div>
-  <button class="btn" onclick="startGame()">Reiniciar</button>
-
-  <!-- Sons -->
-  <audio id="click-sound" src="https://www.myinstants.com/media/sounds/minecraft_click.mp3"></audio>
-  <audio id="explosion-sound" src="https://www.myinstants.com/media/sounds/explosion.mp3"></audio>
-  <audio id="win-sound" src="https://www.myinstants.com/media/sounds/victory.mp3"></audio>
+  <div class="container">
+    <p>Evite as minas 💣! Toque e segure para marcar 🚩</p>
+    <div class="grid" id="grid"></div>
+    <button onclick="reiniciar()">Reiniciar</button>
+  </div>
 
   <script>
-    const boardElement = document.getElementById('board');
-    const info = document.getElementById('info');
-    const timerDisplay = document.getElementById('timer');
-    const size = 10;
-    const minesCount = 20;
-    let board = [];
-    let revealedCount = 0;
-    let gameOver = false;
-    let timer = null;
-    let timeElapsed = 0;
+    const grid = document.getElementById('grid');
+    const linhas = 8, colunas = 8;
 
-    const clickSound = document.getElementById('click-sound');
-    const explosionSound = document.getElementById('explosion-sound');
-    const winSound = document.getElementById('win-sound');
-
-    function startGame() {
-      boardElement.innerHTML = '';
-      board = [];
-      revealedCount = 0;
-      gameOver = false;
-      timeElapsed = 0;
-      clearInterval(timer);
-      timerDisplay.textContent = "⏱️ Tempo: 0s";
-      timer = setInterval(() => {
-        timeElapsed++;
-        timerDisplay.textContent = `⏱️ Tempo: ${timeElapsed}s`;
-      }, 1000);
-
-      info.textContent = 'Evite as minas! 💣 Use o botão direito para 🚩';
-
-      for (let i = 0; i < size; i++) {
-        board[i] = [];
-        for (let j = 0; j < size; j++) {
-          board[i][j] = {
-            isMine: false,
-            revealed: false,
-            flagged: false,
-            adjacentMines: 0,
-            element: null
-          };
-        }
-      }
-
-      // Coloca minas aleatórias
-      let placedMines = 0;
-      while (placedMines < minesCount) {
-        const row = Math.floor(Math.random() * size);
-        const col = Math.floor(Math.random() * size);
-        if (!board[row][col].isMine) {
-          board[row][col].isMine = true;
-          placedMines++;
-        }
-      }
-
-      // Conta minas vizinhas
-      for (let i = 0; i < size; i++) {
-        for (let j = 0; j < size; j++) {
-          board[i][j].adjacentMines = countAdjacentMines(i, j);
-        }
-      }
-
-      // Cria as células HTML
-      for (let i = 0; i < size; i++) {
-        for (let j = 0; j < size; j++) {
-          const cell = document.createElement('button');
-          cell.classList.add('cell');
-          cell.addEventListener('click', () => revealCell(i, j));
-          cell.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            toggleFlag(i, j);
-          });
-          boardElement.appendChild(cell);
-          board[i][j].element = cell;
-        }
+    function criarGrid() {
+      grid.innerHTML = '';
+      for (let i = 0; i < linhas * colunas; i++) {
+        const cell = document.createElement('div');
+        cell.classList.add('cell');
+        cell.addEventListener('click', () => cell.style.backgroundColor = '#aaa');
+        grid.appendChild(cell);
       }
     }
 
-    function countAdjacentMines(row, col) {
-      let count = 0;
-      for (let i = -1; i <= 1; i++) {
-        for (let j = -1; j <= 1; j++) {
-          const r = row + i;
-          const c = col + j;
-          if (r >= 0 && r < size && c >= 0 && c < size && board[r][c].isMine) {
-            count++;
-          }
-        }
-      }
-      return count;
+    function reiniciar() {
+      criarGrid();
     }
 
-    function revealCell(row, col) {
-      if (gameOver) return;
-
-      const cell = board[row][col];
-      if (cell.revealed || cell.flagged) return;
-
-      clickSound.play();
-      cell.revealed = true;
-      revealedCount++;
-      cell.element.classList.add('revealed');
-
-      if (cell.isMine) {
-        cell.element.classList.add('bomb');
-        cell.element.textContent = '💣';
-        explosionSound.play();
-        gameOver = true;
-        info.textContent = 'Game Over! ☠️';
-        revealAllMines();
-        clearInterval(timer);
-        return;
-      }
-
-      if (cell.adjacentMines > 0) {
-        cell.element.textContent = cell.adjacentMines;
-      } else {
-        for (let i = -1; i <= 1; i++) {
-          for (let j = -1; j <= 1; j++) {
-            const r = row + i;
-            const c = col + j;
-            if (r >= 0 && r < size && c >= 0 && c < size) {
-              revealCell(r, c);
-            }
-          }
-        }
-      }
-
-      if (revealedCount === size * size - minesCount) {
-        gameOver = true;
-        info.textContent = 'Você venceu! 🏆';
-        revealAllMines(true);
-        clearInterval(timer);
-        winSound.play();
-      }
-    }
-
-    function toggleFlag(row, col) {
-      if (gameOver) return;
-      const cell = board[row][col];
-      if (cell.revealed) return;
-
-      cell.flagged = !cell.flagged;
-      if (cell.flagged) {
-        cell.element.textContent = '🚩';
-        cell.element.classList.add('flagged');
-      } else {
-        cell.element.textContent = '';
-        cell.element.classList.remove('flagged');
-      }
-    }
-
-    function revealAllMines(won = false) {
-      for (let i = 0; i < size; i++) {
-        for (let j = 0; j < size; j++) {
-          const cell = board[i][j];
-          if (cell.isMine && !cell.revealed) {
-            cell.element.textContent = won ? '🚩' : '💣';
-            cell.element.classList.add('bomb');
-          }
-          cell.element.disabled = true;
-        }
-      }
-    }
-
-    startGame();
+    criarGrid();
   </script>
 </body>
 </html>
